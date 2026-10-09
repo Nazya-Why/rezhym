@@ -7,7 +7,13 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const view = $('#view');
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const haptic = (p = 8) => { try { navigator.vibrate?.(p); } catch {} };
+const tg = () => window.Telegram?.WebApp;
+// У Telegram — його нативні вібрації (працюють і на iPhone), у браузері — Vibration API
+const haptic = (p = 8) => {
+  const h = tg()?.HapticFeedback;
+  if (h) { Array.isArray(p) ? h.notificationOccurred('success') : h.impactOccurred('light'); return; }
+  try { navigator.vibrate?.(p); } catch {}
+};
 
 const ROUTES = ['today', 'habits', 'focus', 'stats'];
 let route = 'today';
@@ -80,8 +86,35 @@ addEventListener('pointerdown', audio, { once: true });
 
 function applyTheme() {
   const t = S.state.settings.theme;
-  if (t === 'auto') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = t;
+  const scheme = t === 'auto' ? tg()?.colorScheme : t;
+  if (scheme) document.documentElement.dataset.theme = scheme;
+  else delete document.documentElement.dataset.theme;
+  const app = tg();
+  if (app) {
+    const dark = scheme ? scheme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    const bg = dark ? '#000000' : '#eef0f6';
+    try { app.setHeaderColor(bg); app.setBackgroundColor(bg); app.setBottomBarColor?.(bg); } catch {}
+  }
+}
+
+// Mini App: SDK вантажимо тільки всередині Telegram
+async function initTelegram() {
+  const inTg = /tgWebApp/.test(location.hash) || window.TelegramWebviewProxy || sessionStorage.getItem('__telegram__initParams');
+  if (!inTg) return;
+  await new Promise(res => {
+    const s = document.createElement('script');
+    s.src = 'https://telegram.org/js/telegram-web-app.js';
+    s.onload = s.onerror = res;
+    document.head.appendChild(s);
+  });
+  const app = tg();
+  if (!app) return;
+  document.documentElement.classList.add('in-tg');
+  app.ready();
+  app.expand();
+  try { app.disableVerticalSwipes(); } catch {}
+  app.onEvent('themeChanged', applyTheme);
+  applyTheme();
 }
 
 function daysLabel(days = []) {
@@ -1063,6 +1096,7 @@ applyTheme();
   route = ROUTES.includes(r) ? r : 'today';
 }
 render(true);
+initTelegram();
 Sync.init();
 
 if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {

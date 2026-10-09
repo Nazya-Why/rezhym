@@ -1,6 +1,6 @@
 // Офлайн-режим: показуємо з кешу одразу, а в фоні тягнемо свіжу версію.
 // Після змін у коді збільш номер версії, щоб телефони підхопили оновлення.
-const CACHE = 'rezhym-v1';
+const CACHE = 'rezhym-v2';
 const ASSETS = [
   './', 'index.html', 'css/style.css',
   'js/app.js', 'js/store.js', 'js/sync.js', 'js/util.js', 'js/icons.js', 'js/config.js',
